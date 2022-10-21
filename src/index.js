@@ -3,12 +3,13 @@ import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { refs } from './refs';
 import { createMarkup } from './createMarkup';
 import { pixabayAPI } from './pixabayAPI';
-
-// 30733025-62942a0e02283ae2db659ca4c
+import SimpleLightbox from 'simplelightbox';
+import 'simplelightbox/dist/simple-lightbox.min.css';
 
 const pixabay = new pixabayAPI();
+const lightbox = new SimpleLightbox('.gallery a');
 
-const handleSubmit = event => {
+async function handleSubmit(event) {
   event.preventDefault();
   const {
     elements: { searchQuery },
@@ -19,60 +20,51 @@ const handleSubmit = event => {
     return;
   }
   pixabay.searchQuery = query;
-  pixabay.resetPage();
-  refs.gallery.innerHTML = '';
-  pixabay.searchImages().then(({ hits, totalHits }) => {
+  clearPage();
+
+  try {
+    const searchData = await pixabay.searchImages();
+    const { hits, totalHits } = searchData;
+    if (hits.length === 0) {
+      Notify.info('No images found :(');
+      return;
+    }
     const markup = createMarkup(hits);
     refs.gallery.insertAdjacentHTML('beforeend', markup);
     pixabay.calculateTotalPages(totalHits);
+    Notify.success(`Hooray! We found ${totalHits} images.`);
     if (pixabay.isShownLoadMore) {
       refs.loadMoreBtn.classList.remove('is-hidden');
     }
-  });
-};
-const onLoadMore = () => {
-  pixabay.incrementPage();
-  if (pixabay.isShownLoadMore) {
-    refs.loadMoreBtn.classList.add('is-hidden');
+    lightbox.refresh();
+  } catch (error) {
+    Notify.failure(error.message, 'Something went wrong!');
+    clearPage();
   }
-  pixabay.searchImages().then(({ hits }) => {
+}
+
+async function onLoadMore() {
+  try {
+    pixabay.incrementPage();
+    const { hits } = await pixabay.searchImages();
     const markup = createMarkup(hits);
     refs.gallery.insertAdjacentHTML('beforeend', markup);
-  });
-};
+    lightbox.refresh();
+    if (!pixabay.isShownLoadMore) {
+      refs.loadMoreBtn.classList.add('is-hidden');
+      Notify.info("We're sorry, but you've reached the end of search results.");
+    }
+  } catch (error) {
+    Notify.failure(error.message, 'Something went wrong!');
+    clearPage();
+  }
+}
 
 refs.form.addEventListener('submit', handleSubmit);
 refs.loadMoreBtn.addEventListener('click', onLoadMore);
 
-// const DEBOUNCE_DELAY = 300;
-// const debounce = require('lodash.debounce');
-
-// refs.input.addEventListener('input', debounce(onFormInput, DEBOUNCE_DELAY));
-
-// function onFormInput(event) {
-//   const country = event.target.value.trim().toLowerCase();
-//   if (!country) {
-//     refs.countryList.innerHTML = '';
-//     refs.countryWrapper.innerHTML = '';
-//     return;
-//   }
-//   fetchCountries(country)
-//     .then(data => {
-//       if (data.length === 1) {
-//         const markupOne = createMarkupOne(data);
-//         refs.countryWrapper.innerHTML = markupOne;
-//         refs.countryList.innerHTML = '';
-//       } else if (data.length >= 2 && data.length <= 10) {
-//         const markupList = data.map(createMarkupList).join('');
-//         refs.countryList.innerHTML = markupList;
-//         refs.countryWrapper.innerHTML = '';
-//       } else {
-//         Notify.info(
-//           'Too many matches found. Please enter a more specific name.'
-//         );
-//       }
-//     })
-//     .catch(error => {
-//       Notify.failure('Oops, there is no country with that name');
-//     });
-// }
+function clearPage() {
+  pixabay.resetPage();
+  refs.gallery.innerHTML = '';
+  refs.loadMoreBtn.classList.add('is-hidden');
+}
