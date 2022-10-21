@@ -9,8 +9,7 @@ export function createMarkup(hits) {
         views,
         comments,
         downloads,
-      }) => {
-        return `<a class="gallery-item list" href="${largeImageURL}"><div class="photo-card">
+      }) => `<a class="gallery-item list" href="${largeImageURL}"><div class="photo-card">
               <img
                 src="${webformatURL}"
                 alt="${tags}"
@@ -32,8 +31,7 @@ export function createMarkup(hits) {
                 </p>
               </div>
                          </div>
-                        </a>`;
-      }
+                        </a>`
     )
-    .join();
+    .join('');
 }
